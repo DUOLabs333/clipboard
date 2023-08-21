@@ -28,7 +28,7 @@ bool operator!=(const Selection& a, const Selection& b){ //C++ doesn't have a de
 	}
 
 	for(int i=0;i<a.num_formats;i++){
-		if (strcmp(a.formats[i],b.formats[i]) || strcmp(a.data[i],b.data[i])){
+		if (strcmp(a.formats[i].name,b.formats[i].name) || strcmp(a.formats[i].data,b.formats[i].data)){
 			return true;
 		}
 	}
@@ -38,12 +38,16 @@ bool operator!=(const Selection& a, const Selection& b){ //C++ doesn't have a de
 extern "C" {
 
 	Selection get(){
-		auto result= Selection();
+		Selection result{};
+
 		auto mime=qGuiApp->clipboard()->mimeData(QClipboard::Clipboard);
+		//Allocate list 
+		result.formats=(Format *)malloc(mime->formats().size()*sizeof(Format));
 
 		for( auto format: mime->formats()){
-			result.formats[result.num_formats]=strdup(format.toStdString().c_str()); //mime goes out of scope when returning, so we don't want to keep pointers to a deleted object
-			result.data[result.num_formats]=strdup(mime->data(format).data());
+			result.formats[result.num_formats]=Format();
+			result.formats[result.num_formats].name=strdup(format.toStdString().c_str()); //mime goes out of scope when returning, so we don't want to keep pointers to a deleted object
+			result.formats[result.num_formats].data=strdup(mime->data(format).data());
 			result.num_formats++;
 		}
 
@@ -55,15 +59,19 @@ extern "C" {
 
 		auto mime= QMimeData();
 		for(int i=0; i<sel.num_formats;i++){
-			mime.setData(QString::fromUtf8(sel.formats[i],-1),QByteArray::fromRawData(sel.data[i],sizeof(*(sel.data[i]))));
+			mime.setData(QString::fromUtf8(sel.formats[i].name,-1),QByteArray::fromRawData(sel.formats[i].data,sizeof(*(sel.formats[i].data))));
 		}
 		qGuiApp->clipboard()->setMimeData(&mime,QClipboard::Clipboard);
 	}
 	
 	Selection new_selection(){
-		Selection sel;
-		return sel;
+		return Selection();
 	}
+
+	Format new_format(){
+		return Format();
+	}
+
 	void clipboard_has_changed(){
 		#ifdef __APPLE__ //On MacOS, only works when app window is in focus. So, must do polling
 			auto previous_selection=get();

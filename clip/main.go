@@ -17,35 +17,27 @@ func ClipboardHasChanged(){
 	C.clipboard_has_changed()
 }
 
-func listOfCharsToSliceOfStrings(list [32]*C.char ,length int) []string{
-	var slice []string
-	for _, str := range list{
-		slice=append(slice,C.GoString(str))
-		C.free(unsafe.Pointer(str))
-	}
-	//C.free(list)
-	return slice
-}
-func sliceofStringstoListOfChars(slice []string) (list [32]*C.char){
-	for idx,str :=range(slice){
-		list[idx]=C.CString(str)
-	}
-	return list
-}
 
 func Get(){
 	result := C.get()
 	selection :=new(protocol.Selection)
 
-	selection.formats=listOfCharsToSliceOfStrings(result.formats,int(result.num_formats))
-	selection.data=listOfCharsToSliceOfStrings(result.data,int(result.num_formats))
+	for _, format := range(unsafe.Slice(result.formats,int(result.num_formats))){
+		selection.formats[C.GoString(format.name)]=C.GoString(format.data)
+	}
 
 	return selection
 }
 func Set(selection protocol.Selection){
 	result:=C.new_selection()
-	result.formats=sliceofStringstoListOfChars(selection.formats)
-	result.data=sliceofStringstoListOfChars(selection.data)
+	formats:=make([]C.Format,len(selection.formata))
+	i:=0
+	for key, value := range(selection.formats){
+		formats[i].name=C.CString(key)
+		formats[i].data=C.CString(value)
+		i++
+	}
+	result.formats=&formats[0]
 	C.set(result)
 }
 
