@@ -18,13 +18,13 @@ func NewSelection() Selection{
 	return result
 }
 func Encode (selection Selection) []byte {
-	var result []byte
 	var data []byte
 
 	buffer:=bytes.NewBuffer(data)
 
 	gob.NewEncoder(buffer).Encode(selection)
 
+	result:=make([]byte,base64.StdEncoding.EncodedLen(len(buffer.Bytes())))
 	base64.StdEncoding.Encode(result,buffer.Bytes())
 
 	result=append(result,[]byte("\n")...)

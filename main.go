@@ -40,7 +40,7 @@ func lockItems(){
 }
 
 func unlockItems(){
-		clipboardItemsLock.Unlock();
+	clipboardItemsLock.Unlock();
 	clipboardSourcesLock.Unlock()
 }
 
@@ -50,7 +50,7 @@ func rLockItems(){
 }
 
 func rUnlockItems(){
-		clipboardItemsLock.RUnlock();
+	clipboardItemsLock.RUnlock();
 	clipboardSourcesLock.RUnlock()
 }
 
@@ -74,8 +74,6 @@ func dequeueItems() (src string,selection protocol.Selection){
 	clipboardSources=clipboardSources[1:]
 	clipboardItems=clipboardItems[1:]
 
-	clipboardItemsLock.Unlock();
-	clipboardSourcesLock.Unlock()
 	return
 }
 
@@ -103,7 +101,6 @@ func readFromLocal(){
 			return
 		}
 		recievedItemsLock.Unlock()
-
 		queueItems("local",selection);
 			
 	}
@@ -115,6 +112,7 @@ func readFromRemote(conn io.Reader){
 	scanner:=bufio.NewScanner(conn)
 
 	for scanner.Scan(){
+		fmt.Println("Recieved!")
 		selection:=protocol.Decode(scanner.Bytes())
 
 		hash := protocol.Hash(selection)
@@ -132,6 +130,7 @@ func Process(conn io.Writer){
 		//Wait for items
 		rLockItems()
 		if len(clipboardSources)==0{
+			rUnlockItems()
 			continue
 		}
 		rUnlockItems()
@@ -139,8 +138,8 @@ func Process(conn io.Writer){
 		source, data := dequeueItems()
 
 		if source=="local"{
-
 			conn.Write(protocol.Encode(data))
+			fmt.Println("Sent!")
 		}else if source=="remote"{
 			clipboard.Set(data)
 		}
