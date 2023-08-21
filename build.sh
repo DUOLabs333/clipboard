@@ -1,16 +1,33 @@
 echo "Cloning minimal qt6"
-git clone --depth=1 https://github.com/qt/qtbase
+cd libClipboard
+git clone --depth=1 -b 6.5.2 https://github.com/qt/qtbase
 
-echo "Configuring build"
+echo "Configuring QT6 build"
 mkdir -p qtbase/build
 cd qtbase/build
-../configure -disable-widgets -disable-dbus -static -plugindir src/plugins -no-opengl
+../configure -disable-widgets -disable-dbus -static -no-opengl
 
-echo "Building"
+echo "Building QT6"
 cmake --build . --parallel
 
-echo "Building project"
-LD_FLAGS="lib/*.a"
+echo "Building libClipboard"
+cd ../..
+g++ -std=c++17 -c libClipboard.cpp -Iqtbase/build/include -Iqtbase/src
+
 if [[ "$OSTYPE" == "darwin"* ]]; then
-	LD_FLAGS=$LD_FLAGS" src/plugins/platforms/libqcocoa.a -framework CoreFoundation -framework CoreServices -framework CoreGraphics -framework IOKit -framework Metal -framework AppKit -framework Security -framework CoreVideo -framework IOSurface -lz -framework Carbon -framework QuartzCore"
+	AR(){
+		/usr/bin/libtool -static -o "$@"
+	}
+else
+	AR(){
+		ar cqT "$1" "${@:2}" && printf "create \"$1\"\naddlib \"$1\"\nsave\nend" | ar -M
+	}
+fi
+
+AR libClipboard.a libClipboard.o qtbase/build/lib/*.a
+rm libClipboard.o
+
+echo "Building project"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+	LD_FLAGS=$LD_FLAGS""
 	CGO_LDFLAGS=$LD_FLAGS go build

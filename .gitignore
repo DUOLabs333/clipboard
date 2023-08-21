@@ -1,0 +1,4 @@
+qtbase/
+*.a
+*.o
+*.out

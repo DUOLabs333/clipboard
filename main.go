@@ -23,69 +23,130 @@ import (
 //Use gob to serialize
 //Test sending using netcat
 
-var currentSelection protocol.CipboardData
-var currentSelectionLock sync.RWMutex
+var clipboardItems=make([]protocol.Selection,0)
+var clipboardItemsLock sync.RWMuxtex
 
-var itemsRecieved=make([]protocol.ClipboardData,0)
-var itemsRecievedLock sync.RWMutex
+var clipboardSources=make([]string,0)
+var clipboardSourcesLock sync.RWMuxtex
 
-func getCurrentSelection(){
-	//Get HasChanged working
+var recievedItems=map[string]int
+var recievedItemsLock sync.RWMuxtex
+
+
+func lockItems(){
+	clipboardItemsLock.Lock()
+	clipboardSourcesLock.Lock()
+}
+
+func unlockItems(){
+		clipboardItemsLock.UnLock();
+	clipboardSourcesLock.Unlock()
+}
+
+func rLockItems(){
+	clipboardItemsLock.RLock()
+	clipboardSourcesLock.RLock()
+}
+
+func rUnlockItems(){
+		clipboardItemsLock.RUnLock();
+	clipboardSourcesLock.RUnlock()
+}
+
+func queueItems(src string,selection protocol.Selection){
+	lockItems()
+	defer unlockItems()
+
+	clipboardItems=append(clipboardItems,selection);
+	clipboardSources=append(clipboardSources,src);
+
+
+}
+
+func dequeueItems() (src string,selection protocol.Selection){
+	lockItems()
+	defer unlockItems()
+
+	src=clipboardSources[0]
+	selection=clipboardItems[0]
+
+	clipboardSources=clipboardSources[1:]
+	clipboardItems=clipboardItems[1:]
+
+	clipboardItemsLock.UnLock();
+	clipboardSourcesLock.Unlock()
+}
+
+
+func readFromLocal(){
 	for {
-		currentSelectionLock.Lock()
-		currentSelection=clipboard.Get();
-		currentSelectionLock.Unlock();
+		if clipboard.clipboardHasChanged(){
+			selection:=clipboard.Get();
+
+			//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged
+			rLockItems()
+			if selection==clipboardItems[-1]{
+				rUnlockItems()
+				return
+			}
+			rUnlockItems()
+
+			hash := protocol.Hash(selection)
+
+			//Proto-ACK functionality. If you recieve selection, don't send the same selection (will just lead to a loop). Acknowledge you recieved it by ignoring it in the clipboard.
+
+			recievedItemsLock.Lock()
+			if recievedItems[hash]>0{
+				recievedItems[hash]-=1
+				return
+			}
+			recievedItemsLock.Unlock()
+
+			queueItems("local",selection);
+			
+		}
 	}
 
 }
+
 
 func readFromRemote(conn io.Reader){
 	scanner:=bufio.NewScanner(conn)
 
 	for scanner.Scan(){
-		itemsRecievedLock.Lock()
-		itemsRecieved=append(itemsRecieved,protocol.Decode(scanner.Bytes()))
-		itemsRecievedLock.Unlock()
-	}
-}
-func Send(conn io.Writer){
-	var lastItemSent struct{}
-	for {
-		currentSelectionLock.RLock()
-		if currentSelection!=lastItemSent{
-			itemToSend:=protocol.Encode(currentSelection)
-			lastItemSent=currentSelection
-			currentSelection.RUnlock()
-			conn.Write(itemToSend) //Encode with new line
-		}else{
-			currentSelectionLock.RUnlock()
-		}
+		selection:=protocol.Decode(scanner.Bytes())
+
+		hash := protocol.Hash(selection)
+
+		recievedItemsLock.Lock()
+		recievedItems[hash]+=1
+		recievedItemsLock.Unlock()
+
+		queueItems("remote",selection)
 	}
 }
 
-func Receive(conn io.Reader){
-	//This syncing works if we assume any item sent is processed instantaneously by all clients. If there is a non-trivial delay (which means the clipboard on the server has changed), there is no way to know whether the sent data is from the server (in that case, we should not send it again), or without doing some kind of signaling
-
-	var item struct{}
-
-	go readFromRemote(conn)
-
-	for {
-		itemsRecievedLock.Lock()
-		if len(itemsRecieved)>0{
-			item=itemsRecieved[0]
-			itemsRecieved=itemsRecieved[1:]
+func Process(conn io.Writer){
+	for{
+		//Wait for items
+		rLockItems()
+		if len(clipboardSources)==0{
+			continue
 		}
-		itemsRecievedLock.Unlock()
+		rUnlockItems()
 
-		currentSelection.RLock()
-		if currentSelection!=item{
-			clipboard.Set(item)
+		source, data := dequeueItems()
+
+		if source=="local"{
+
+			conn.Write(protocol.Encode(data))
+		}else if source=="remote"{
+			clipboard.Set(data)
 		}
-		currentSelection.RUnlock()
+
 	}
-
 }
+
 
 func exitHandler(){
 	sigs:= make(chan os.Signal, 1)
@@ -125,9 +186,9 @@ func main(){
 		conn,_=net.Dial("tcp",fmt.Sprintf("%s:%d",*Host,8001))
 	}
 
-	go getCurrentSelection()
-	go Send(conn)
-	go Receive(conn)
+	go readFromRemote()
+	go readFromLocal()
+	go Process()
 
 	select{} //Sleep forever
 
