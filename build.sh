@@ -28,6 +28,4 @@ AR libClipboard.a libClipboard.o qtbase/build/lib/*.a
 rm libClipboard.o
 
 echo "Building project"
-if [[ "$OSTYPE" == "darwin"* ]]; then
-	LD_FLAGS=$LD_FLAGS""
-	CGO_LDFLAGS=$LD_FLAGS go build
+go build

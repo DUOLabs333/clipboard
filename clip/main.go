@@ -18,26 +18,27 @@ func ClipboardHasChanged(){
 }
 
 
-func Get(){
+func Get() protocol.Selection{
 	result := C.get()
-	selection :=new(protocol.Selection)
+	selection :=protocol.NewSelection()
 
 	for _, format := range(unsafe.Slice(result.formats,int(result.num_formats))){
-		selection.formats[C.GoString(format.name)]=C.GoString(format.data)
+		selection.Formats[C.GoString(format.name)]=C.GoString(format.data)
 	}
 
 	return selection
 }
 func Set(selection protocol.Selection){
 	result:=C.new_selection()
-	formats:=make([]C.Format,len(selection.formata))
+	formats:=make([]C.Format,len(selection.Formats))
 	i:=0
-	for key, value := range(selection.formats){
+	for key, value := range(selection.Formats){
 		formats[i].name=C.CString(key)
 		formats[i].data=C.CString(value)
 		i++
 	}
 	result.formats=&formats[0]
+	result.num_formats=C.int(len(formats))
 	C.set(result)
 }
 

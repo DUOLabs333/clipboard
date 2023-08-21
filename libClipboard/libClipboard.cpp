@@ -68,14 +68,9 @@ extern "C" {
 		return Selection();
 	}
 
-	Format new_format(){
-		return Format();
-	}
-
 	void clipboard_has_changed(){
 		#ifdef __APPLE__ //On MacOS, only works when app window is in focus. So, must do polling
 			auto previous_selection=get();
-			fprintf(stderr, "HELLO\n");
 			while(true){
 				if (get()!=previous_selection){
 					return;

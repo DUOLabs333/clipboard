@@ -11,6 +11,7 @@ import (
 	"bufio"
 	"io"
 	"sync"
+	"reflect"
 	clipboard "clipboard/clip"
 	"av-forward/server"
 	"clipboard/protocol"
@@ -24,13 +25,13 @@ import (
 //Test sending using netcat
 
 var clipboardItems=make([]protocol.Selection,0)
-var clipboardItemsLock sync.RWMuxtex
+var clipboardItemsLock sync.RWMutex
 
 var clipboardSources=make([]string,0)
-var clipboardSourcesLock sync.RWMuxtex
+var clipboardSourcesLock sync.RWMutex
 
-var recievedItems=map[string]int
-var recievedItemsLock sync.RWMuxtex
+var recievedItems map[string]int
+var recievedItemsLock sync.RWMutex
 
 
 func lockItems(){
@@ -39,7 +40,7 @@ func lockItems(){
 }
 
 func unlockItems(){
-		clipboardItemsLock.UnLock();
+		clipboardItemsLock.Unlock();
 	clipboardSourcesLock.Unlock()
 }
 
@@ -49,7 +50,7 @@ func rLockItems(){
 }
 
 func rUnlockItems(){
-		clipboardItemsLock.RUnLock();
+		clipboardItemsLock.RUnlock();
 	clipboardSourcesLock.RUnlock()
 }
 
@@ -73,38 +74,38 @@ func dequeueItems() (src string,selection protocol.Selection){
 	clipboardSources=clipboardSources[1:]
 	clipboardItems=clipboardItems[1:]
 
-	clipboardItemsLock.UnLock();
+	clipboardItemsLock.Unlock();
 	clipboardSourcesLock.Unlock()
+	return
 }
 
 
 func readFromLocal(){
 	for {
-		if clipboard.clipboardHasChanged(){
-			selection:=clipboard.Get();
+		clipboard.ClipboardHasChanged()
+		selection:=clipboard.Get();
 
-			//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged
-			rLockItems()
-			if selection==clipboardItems[-1]{
-				rUnlockItems()
-				return
-			}
+		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged
+		rLockItems()
+		if len(clipboardItems)>0 && reflect.DeepEqual(selection,clipboardItems[len(clipboardItems)-1]){
 			rUnlockItems()
-
-			hash := protocol.Hash(selection)
-
-			//Proto-ACK functionality. If you recieve selection, don't send the same selection (will just lead to a loop). Acknowledge you recieved it by ignoring it in the clipboard.
-
-			recievedItemsLock.Lock()
-			if recievedItems[hash]>0{
-				recievedItems[hash]-=1
-				return
-			}
-			recievedItemsLock.Unlock()
-
-			queueItems("local",selection);
-			
+			return
 		}
+		rUnlockItems()
+
+		hash := protocol.Hash(selection)
+
+		//Proto-ACK functionality. If you recieve selection, don't send the same selection (will just lead to a loop). Acknowledge you recieved it by ignoring it in the clipboard.
+
+		recievedItemsLock.Lock()
+		if recievedItems[hash]>0{
+			recievedItems[hash]-=1
+			return
+		}
+		recievedItemsLock.Unlock()
+
+		queueItems("local",selection);
+			
 	}
 
 }
@@ -186,9 +187,9 @@ func main(){
 		conn,_=net.Dial("tcp",fmt.Sprintf("%s:%d",*Host,8001))
 	}
 
-	go readFromRemote()
+	go readFromRemote(conn)
 	go readFromLocal()
-	go Process()
+	go Process(conn)
 
 	select{} //Sleep forever
 

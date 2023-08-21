@@ -23,7 +23,7 @@ void clipboard_has_changed();
 void destroy_selection(Selection sel);
 
 Selection new_selection();
-Format new_format();
+
 #ifdef __cplusplus
 }
 #endif
