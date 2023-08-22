@@ -3,3 +3,5 @@ qtbase/
 *.o
 *.out
 clipboard
+av-forward/
+server/

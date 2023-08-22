@@ -34,8 +34,9 @@ func Encode (selection Selection) []byte {
 
 func Decode(result []byte) Selection {
 	selection:=Selection{}
-	var data []byte
+	data:=make([]byte,base64.StdEncoding.EncodedLen(len(result)))
 
+	fmt.Println(string(result))
 	base64.StdEncoding.Decode(data,result)
 
 	buffer:=bytes.NewBuffer(data)

@@ -29,6 +29,9 @@ func Get() protocol.Selection{
 	return selection
 }
 func Set(selection protocol.Selection){
+	if len(selection.Formats)==0{
+		return
+	}
 	result:=C.new_selection()
 	formats:=make([]C.Format,len(selection.Formats))
 	i:=0

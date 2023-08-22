@@ -13,7 +13,9 @@ import (
 	"sync"
 	"reflect"
 	clipboard "clipboard/clip"
-	"av-forward/server"
+	"clipboard/server"
+	//"clipboard/av-forward/server"
+	//"av-forward/server"
 	"clipboard/protocol"
 
 )
@@ -30,7 +32,7 @@ var clipboardItemsLock sync.RWMutex
 var clipboardSources=make([]string,0)
 var clipboardSourcesLock sync.RWMutex
 
-var recievedItems map[string]int
+var recievedItems map[string]int = make(map[string]int)
 var recievedItemsLock sync.RWMutex
 
 
@@ -109,12 +111,22 @@ func readFromLocal(){
 
 
 func readFromRemote(conn io.Reader){
-	scanner:=bufio.NewScanner(conn)
+	//for {
+		//buffer:=make([]byte,4096)
+		//conn.Read(buffer)
+		
+		//fmt.Println(string(buffer))
+	//}
+	scanner:=bufio.NewReader(conn)
 
-	for scanner.Scan(){
+	fmt.Println("Hello!")
+	for {
+		line, _, _ :=scanner.ReadLine()
+		if len(line)==0{
+			continue
+		}
+		selection:=protocol.Decode(line)
 		fmt.Println("Recieved!")
-		selection:=protocol.Decode(scanner.Bytes())
-
 		hash := protocol.Hash(selection)
 
 		recievedItemsLock.Lock()
@@ -138,6 +150,7 @@ func Process(conn io.Writer){
 		source, data := dequeueItems()
 
 		if source=="local"{
+
 			conn.Write(protocol.Encode(data))
 			fmt.Println("Sent!")
 		}else if source=="remote"{
