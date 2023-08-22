@@ -43,6 +43,7 @@ func Set(selection protocol.Selection){
 	result.formats=&formats[0]
 	result.num_formats=C.int(len(formats))
 	C.set(result)
+
 }
 
 

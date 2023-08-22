@@ -57,11 +57,13 @@ extern "C" {
 
 	void set(Selection sel){
 
-		auto mime= QMimeData();
+		auto mime= new QMimeData;
 		for(int i=0; i<sel.num_formats;i++){
-			mime.setData(QString::fromUtf8(sel.formats[i].name,-1),QByteArray::fromRawData(sel.formats[i].data,sizeof(*(sel.formats[i].data))));
+			fprintf(stderr,"Testing: %s\n",sel.formats[i].name);
+			fprintf(stderr,"Testing: %s\n",sel.formats[i].data);
+			mime->setData(QString::fromUtf8(sel.formats[i].name,-1),QByteArray::fromRawData(sel.formats[i].data,sizeof(*(sel.formats[i].data))));
 		}
-		qGuiApp->clipboard()->setMimeData(&mime,QClipboard::Clipboard);
+		qGuiApp->clipboard()->setMimeData(mime,QClipboard::Clipboard);
 	}
 	
 	Selection new_selection(){
