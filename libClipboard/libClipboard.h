@@ -22,7 +22,9 @@ void clipboard_has_changed();
 
 void destroy_selection(Selection sel);
 
-Selection new_selection();
+Selection new_selection(int len);
+
+void * init();
 
 #ifdef __cplusplus
 }

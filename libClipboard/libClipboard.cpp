@@ -37,18 +37,21 @@ bool operator!=(const Selection& a, const Selection& b){ //C++ doesn't have a de
 
 extern "C" {
 
+	void* init(){
+		return new QGuiApplication(foo,bar);
+	}
 	Selection get(){
-		Selection result{};
 
 		auto mime=qGuiApp->clipboard()->mimeData(QClipboard::Clipboard);
 		//Allocate list 
-		result.formats=(Format *)malloc(mime->formats().size()*sizeof(Format));
 
-		for( auto format: mime->formats()){
-			result.formats[result.num_formats]=Format();
-			result.formats[result.num_formats].name=strdup(format.toStdString().c_str()); //mime goes out of scope when returning, so we don't want to keep pointers to a deleted object
-			result.formats[result.num_formats].data=strdup(mime->data(format).data());
-			result.num_formats++;
+		auto result=new_selection(mime->formats().size());
+
+		for( int i=0; i<result.num_formats; i++){
+			auto format=mime->formats()[i];
+			result.formats[i]=Format();
+			result.formats[i].name=strdup(format.toStdString().c_str()); //mime goes out of scope when returning, so we don't want to keep pointers to a deleted object
+			result.formats[i].data=strdup(mime->data(format).data());
 		}
 
 	return result;
@@ -61,13 +64,28 @@ extern "C" {
 		for(int i=0; i<sel.num_formats;i++){
 			fprintf(stderr,"Testing: %s\n",sel.formats[i].name);
 			fprintf(stderr,"Testing: %s\n",sel.formats[i].data);
-			mime->setData(QString::fromUtf8(sel.formats[i].name,-1),QByteArray::fromRawData(sel.formats[i].data,sizeof(*(sel.formats[i].data))));
+			//fprintf(stderr,"Conversion: %s\n",QString::fromUtf8(sel.formats[i].name,-1));
+			mime->setData(sel.formats[i].name,sel.formats[i].data);
 		}
+
 		qGuiApp->clipboard()->setMimeData(mime,QClipboard::Clipboard);
 	}
 	
-	Selection new_selection(){
-		return Selection();
+	Selection new_selection(int len){
+		auto result = Selection();
+		result.num_formats=len;
+		result.formats=(Format *)malloc(len*sizeof(Format));
+		return result;
+
+
+	}
+
+	void destroy_selection(Selection sel){
+		for(int i=0; i<sel.num_formats;i++){
+			free(sel.formats[i].name);
+			free(sel.formats[i].data);
+		}
+		free(sel.formats);
 	}
 
 	void clipboard_has_changed(){

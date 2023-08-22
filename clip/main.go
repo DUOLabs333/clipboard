@@ -12,7 +12,7 @@ import "C"
 
 import "unsafe"
 import "clipboard/protocol"
-
+import "fmt"
 func ClipboardHasChanged(){
 	C.clipboard_has_changed()
 }
@@ -25,24 +25,29 @@ func Get() protocol.Selection{
 	for _, format := range(unsafe.Slice(result.formats,int(result.num_formats))){
 		selection.Formats[C.GoString(format.name)]=C.GoString(format.data)
 	}
-
+	C.destroy_selection(result)
 	return selection
 }
 func Set(selection protocol.Selection){
 	if len(selection.Formats)==0{
 		return
 	}
-	result:=C.new_selection()
-	formats:=make([]C.Format,len(selection.Formats))
+	
+	result:=C.new_selection(C.int(len(selection.Formats)));
+
+
 	i:=0
+	formats:=unsafe.Slice(result.formats,int(result.num_formats))
+
 	for key, value := range(selection.Formats){
 		formats[i].name=C.CString(key)
 		formats[i].data=C.CString(value)
 		i++
 	}
-	result.formats=&formats[0]
-	result.num_formats=C.int(len(formats))
+
 	C.set(result)
+
+	C.destroy_selection(result)
 
 }
 
