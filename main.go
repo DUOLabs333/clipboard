@@ -35,6 +35,8 @@ var clipboardSourcesLock sync.RWMutex
 var recievedItems map[string]int = make(map[string]int)
 var recievedItemsLock sync.RWMutex
 
+var currentSelection protocol.Selection
+var currentSelectionLock sync.RWMutex
 
 func lockItems(){
 	clipboardItemsLock.Lock()
@@ -82,16 +84,21 @@ func dequeueItems() (src string,selection protocol.Selection){
 
 func readFromLocal(){
 	for {
-		clipboard.ClipboardHasChanged()
+		//clipboard.ClipboardHasChanged()
 		selection:=clipboard.Get();
 
 		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged
-		rLockItems()
-		if len(clipboardItems)>0 && reflect.DeepEqual(selection,clipboardItems[len(clipboardItems)-1]){
-			rUnlockItems()
-			return
+		currentSelectionLock.RLock()
+		if reflect.DeepEqual(selection,currentSelection){
+			currentSelectionLock.RUnlock()
+			continue
 		}
-		rUnlockItems()
+		fmt.Println(selection)
+		currentSelectionLock.RUnlock()
+
+		currentSelectionLock.Lock()
+		currentSelection=selection
+		currentSelectionLock.Unlock()
 
 		hash := protocol.Hash(selection)
 
@@ -100,23 +107,20 @@ func readFromLocal(){
 		recievedItemsLock.Lock()
 		if recievedItems[hash]>0{
 			recievedItems[hash]-=1
-			return
+			recievedItemsLock.Unlock()
+			continue
 		}
 		recievedItemsLock.Unlock()
+
 		queueItems("local",selection);
-			
+		fmt.Println("Queued for local")
+
 	}
 
 }
 
 
 func readFromRemote(conn io.Reader){
-	//for {
-		//buffer:=make([]byte,4096)
-		//conn.Read(buffer)
-		
-		//fmt.Println(string(buffer))
-	//}
 	scanner:=bufio.NewReader(conn)
 
 	fmt.Println("Hello!")
@@ -125,7 +129,11 @@ func readFromRemote(conn io.Reader){
 		if len(line)==0{
 			continue
 		}
-		selection:=protocol.Decode(line)
+		selection,err:=protocol.Decode(line)
+		if err!=nil{
+			fmt.Println("Decode error!")
+			continue
+		}
 		fmt.Println("Recieved!")
 		hash := protocol.Hash(selection)
 
@@ -134,6 +142,7 @@ func readFromRemote(conn io.Reader){
 		recievedItemsLock.Unlock()
 
 		queueItems("remote",selection)
+		fmt.Println("Queued for remote")
 	}
 }
 
@@ -150,11 +159,13 @@ func Process(conn io.Writer){
 		source, data := dequeueItems()
 
 		if source=="local"{
-
+			fmt.Println("Sending...")
 			conn.Write(protocol.Encode(data))
 			fmt.Println("Sent!")
 		}else if source=="remote"{
+			fmt.Println("Setting...")
 			clipboard.Set(data)
+			fmt.Println("Set!")
 		}
 
 	}
@@ -203,7 +214,7 @@ func main(){
 	go readFromLocal()
 	go Process(conn)
 
-	select{} //Sleep forever
+	clipboard.Wait()
 
 
 }

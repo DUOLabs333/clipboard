@@ -12,7 +12,7 @@ import "C"
 
 import "unsafe"
 import "clipboard/protocol"
-import "fmt"
+//import "fmt"
 func ClipboardHasChanged(){
 	C.clipboard_has_changed()
 }
@@ -29,6 +29,7 @@ func Get() protocol.Selection{
 	return selection
 }
 func Set(selection protocol.Selection){
+
 	if len(selection.Formats)==0{
 		return
 	}
@@ -49,6 +50,10 @@ func Set(selection protocol.Selection){
 
 	C.destroy_selection(result)
 
+}
+
+func Wait(){
+	C.clipboard_wait()
 }
 
 

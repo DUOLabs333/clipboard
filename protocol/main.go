@@ -25,6 +25,7 @@ func Encode (selection Selection) []byte {
 	gob.NewEncoder(buffer).Encode(selection)
 
 	result:=make([]byte,base64.StdEncoding.EncodedLen(len(buffer.Bytes())))
+
 	base64.StdEncoding.Encode(result,buffer.Bytes())
 
 	result=append(result,[]byte("\n")...)
@@ -32,18 +33,22 @@ func Encode (selection Selection) []byte {
 	return result
 }
 
-func Decode(result []byte) Selection {
-	selection:=Selection{}
-	data:=make([]byte,base64.StdEncoding.EncodedLen(len(result)))
+func Decode(result []byte)(selection Selection, err error) {
+	selection=Selection{}
+	data:=make([]byte,base64.StdEncoding.DecodedLen(len(result)))
 
-	fmt.Println(string(result))
-	base64.StdEncoding.Decode(data,result)
+	n,err:=base64.StdEncoding.Decode(data,result)
 
+	if err!=nil{
+		return
+	}
+
+	data=data[:n]
 	buffer:=bytes.NewBuffer(data)
 
-	gob.NewDecoder(buffer).Decode(&selection)
+	err=gob.NewDecoder(buffer).Decode(&selection)
 
-	return selection
+	return
 }
 
 func Hash(selection Selection) string {

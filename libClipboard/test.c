@@ -3,7 +3,7 @@
 #include <unistd.h>
 int main(int argc, char** argv){
 	//clipboard_has_changed();
-	//init();
+
 	Selection result=get();
 
 	for(int i=0;i<result.num_formats;i++){
@@ -13,12 +13,13 @@ int main(int argc, char** argv){
 	}
 	result.formats[0].data="Hi!";
 	set(result);
-
+	//sleep(1);
 	result=get();
 	for(int i=0;i<result.num_formats;i++){
 
 		fprintf(stderr, "\nWhat's being get: %s\n",result.formats[i].name);
 		fprintf(stderr, "What's being get: %s\n",result.formats[i].data);
 	}
-	sleep(10000000000);
+	clipboard_wait();
+
 }

@@ -37,9 +37,10 @@ bool operator!=(const Selection& a, const Selection& b){ //C++ doesn't have a de
 
 extern "C" {
 
-	void* init(){
-		return new QGuiApplication(foo,bar);
+	void clipboard_wait(){
+		qGuiApp->exec();
 	}
+
 	Selection get(){
 
 		auto mime=qGuiApp->clipboard()->mimeData(QClipboard::Clipboard);
@@ -62,10 +63,8 @@ extern "C" {
 
 		auto mime= new QMimeData;
 		for(int i=0; i<sel.num_formats;i++){
-			fprintf(stderr,"Testing: %s\n",sel.formats[i].name);
-			fprintf(stderr,"Testing: %s\n",sel.formats[i].data);
-			//fprintf(stderr,"Conversion: %s\n",QString::fromUtf8(sel.formats[i].name,-1));
-			mime->setData(sel.formats[i].name,sel.formats[i].data);
+			//mime->setData(QString::fromUtf8(sel.formats[i].name,-1),QByteArray::fromRawData(sel.formats[i].data,strlen(sel.formats[i].data)));
+			mime->setData(strdup(sel.formats[i].name),strdup(sel.formats[i].data));
 		}
 
 		qGuiApp->clipboard()->setMimeData(mime,QClipboard::Clipboard);
