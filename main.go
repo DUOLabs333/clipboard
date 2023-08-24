@@ -84,14 +84,15 @@ func readFromLocal(){
 	for {
 		//clipboard.ClipboardHasChanged()
 		selection:=clipboard.Get();
-		
+		fmt.Println(selection)
+		continue
 		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged
 		currentSelectionLock.RLock()
 		if reflect.DeepEqual(selection,currentSelection){
 			currentSelectionLock.RUnlock()
 			continue
 		}
-		fmt.Println("Selection:",selection)
+		
 		currentSelectionLock.RUnlock()
 
 		currentSelectionLock.Lock()
@@ -111,7 +112,7 @@ func readFromLocal(){
 		recievedItemsLock.Unlock()
 
 		queueItems("local",selection);
-		fmt.Println("Queued for local")
+		fmt.Println("Queued for local:",selection)
 
 	}
 
@@ -141,7 +142,7 @@ func readFromRemote(conn io.Reader){
 		recievedItemsLock.Unlock()
 
 		queueItems("remote",selection)
-		fmt.Println("Queued for remote")
+		fmt.Println("Queued for remote:",selection)
 	}
 }
 
