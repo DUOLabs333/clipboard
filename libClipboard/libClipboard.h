@@ -26,6 +26,8 @@ Selection new_selection(int len);
 
 void clipboard_wait();
 
+void* clipboard_init();
+
 #ifdef __cplusplus
 }
 #endif

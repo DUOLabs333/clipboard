@@ -13,12 +13,12 @@
 #ifdef __APPLE__
 	Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin);
 	auto ret=setenv("QT_MAC_DISABLE_FOREGROUND_APPLICATION_TRANSFORM","1",1);
+#else
+    Q_IMPORT_PLUGIN(QXcbIntegrationPlugin);
 #endif
 
 int foo=1;
 char *bar[]={""};
-
-auto app=new QGuiApplication(foo,bar);
 
 //Make struct for c that has qtguiapplication, so c programs don't have to point to it
 
@@ -40,7 +40,10 @@ extern "C" {
 	void clipboard_wait(){
 		qGuiApp->exec();
 	}
-
+    
+    void* clipboard_init(){
+        return new QGuiApplication(foo,bar);
+    }
 	Selection get(){
 
 		auto mime=qGuiApp->clipboard()->mimeData(QClipboard::Clipboard);
@@ -49,6 +52,10 @@ extern "C" {
 		auto result=new_selection(mime->formats().size());
 
 		for( int i=0; i<result.num_formats; i++){
+		    if (i>=mime->formats().size()){ //Pointer may be invalidated at any point
+		      result.num_formats=mime->formats().size();
+		      break;
+		    }
 			auto format=mime->formats()[i];
 			result.formats[i]=Format();
 			result.formats[i].name=strdup(format.toStdString().c_str()); //mime goes out of scope when returning, so we don't want to keep pointers to a deleted object

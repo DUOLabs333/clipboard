@@ -13,9 +13,7 @@ import (
 	"sync"
 	"reflect"
 	clipboard "clipboard/clip"
-	"clipboard/server"
-	//"clipboard/av-forward/server"
-	//"av-forward/server"
+	"av-forward/server"
 	"clipboard/protocol"
 
 )
@@ -86,14 +84,14 @@ func readFromLocal(){
 	for {
 		//clipboard.ClipboardHasChanged()
 		selection:=clipboard.Get();
-
+		
 		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged
 		currentSelectionLock.RLock()
 		if reflect.DeepEqual(selection,currentSelection){
 			currentSelectionLock.RUnlock()
 			continue
 		}
-		fmt.Println(selection)
+		fmt.Println("Selection:",selection)
 		currentSelectionLock.RUnlock()
 
 		currentSelectionLock.Lock()
@@ -129,6 +127,7 @@ func readFromRemote(conn io.Reader){
 		if len(line)==0{
 			continue
 		}
+		
 		selection,err:=protocol.Decode(line)
 		if err!=nil{
 			fmt.Println("Decode error!")
@@ -208,8 +207,10 @@ func main(){
 		conn=server
 	}else{
 		conn,_=net.Dial("tcp",fmt.Sprintf("%s:%d",*Host,8001))
+		
 	}
-
+	
+	clipboard.Init()
 	go readFromRemote(conn)
 	go readFromLocal()
 	go Process(conn)
