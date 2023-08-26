@@ -34,10 +34,6 @@ bool operator!=(const Selection& a, const Selection& b){ //C++ doesn't have a de
 }
 
 extern "C" {
-
-	void clipboard_process(){
-	   qGuiApp->processEvents();
-	}
     
     void clipboard_wait(){
         qGuiApp->exec();
@@ -47,7 +43,7 @@ extern "C" {
         return new QGuiApplication(foo,bar);
     }
 	Selection get(){
-
+        qGuiApp->processEvents();
 		auto mime=qGuiApp->clipboard()->mimeData(QClipboard::Clipboard);
         
         auto formats=mime->formats();
@@ -64,13 +60,14 @@ extern "C" {
 
 
 	void set(Selection sel){
-
+        qGuiApp->processEvents();
 		auto mime= new QMimeData;
 		for(int i=0; i<sel.num_formats;i++){
 			mime->setData(strdup(sel.formats[i].name),strdup(sel.formats[i].data));
 		}
 
 		qGuiApp->clipboard()->setMimeData(mime,QClipboard::Clipboard);
+		qGuiApp->processEvents();
 	}
 	
 	Selection new_selection(int len){

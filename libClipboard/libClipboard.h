@@ -24,8 +24,6 @@ void destroy_selection(Selection sel);
 
 Selection new_selection(int len);
 
-void clipboard_process();
-
 void clipboard_wait();
 
 void* clipboard_init();

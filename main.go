@@ -216,7 +216,6 @@ func main(){
 		//}
 	//}()
 	
-	//clipboard.Test()
 	select{}
 
 
