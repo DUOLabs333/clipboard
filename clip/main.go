@@ -25,6 +25,7 @@ func Get() protocol.Selection{
 	clipboardLock.RLock()
 	defer clipboardLock.RUnlock()
 	
+	C.clipboard_process();
 	result := C.get()
 	selection :=protocol.NewSelection()
 
@@ -51,6 +52,8 @@ func Set(selection protocol.Selection){
 		formats[i].data=C.CString(value)
 		i++
 	}
+	
+	C.clipboard_process()
 	clipboardLock.Lock()
 	C.set(result)
 	clipboardLock.Unlock()

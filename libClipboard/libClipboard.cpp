@@ -35,9 +35,13 @@ bool operator!=(const Selection& a, const Selection& b){ //C++ doesn't have a de
 
 extern "C" {
 
-	void clipboard_wait(){
-		qGuiApp->exec();
+	void clipboard_process(){
+	   qGuiApp->processEvents();
 	}
+    
+    void clipboard_wait(){
+        qGuiApp->exec();
+    }
     
     void* clipboard_init(){
         return new QGuiApplication(foo,bar);

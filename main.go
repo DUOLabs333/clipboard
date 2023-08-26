@@ -207,14 +207,17 @@ func main(){
 	clipboard.Init()
 	go readFromRemote(conn)
 	go Process(conn)
-	readFromLocal() //Can't be in goroutine as accessing becomes sporadic on X11
-	
+	go readFromLocal()
+
 	//go func(){
 		//for {
+			//clipboard.Wait()
 			//fmt.Println(clipboard.Get())
 		//}
 	//}()
-	clipboard.Wait()
+	
+	//clipboard.Test()
+	select{}
 
 
 }

@@ -5,6 +5,7 @@ import(
 	"encoding/base64"
 	"encoding/gob"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 )
 
@@ -53,6 +54,7 @@ func Decode(result []byte)(selection Selection, err error) {
 
 func Hash(selection Selection) string {
 	hash :=sha256.New()
-	hash.Write(Encode(selection))
+	marshal,_:=json.Marshal(selection)
+	hash.Write(marshal)
 	return fmt.Sprintf("%x",hash.Sum(nil))
 }
