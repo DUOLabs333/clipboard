@@ -18,12 +18,6 @@ import (
 
 )
 
-//Have function that gets current top of clipboard. 
-//Send if it is separate from the last thing sent.
-//Lock everything. Run send and recieve in different threads
-//Use gob to serialize
-//Test sending using netcat
-
 var clipboardItems=make([]protocol.Selection,0)
 var clipboardItemsLock sync.RWMutex
 
@@ -62,6 +56,7 @@ func queueItems(src string,selection protocol.Selection){
 
 	clipboardItems=append(clipboardItems,selection);
 	clipboardSources=append(clipboardSources,src);
+	fmt.Printf("Queued for %s: %v\n",src,selection)
 
 
 }
@@ -84,9 +79,8 @@ func readFromLocal(){
 	for {
 		//clipboard.ClipboardHasChanged()
 		selection:=clipboard.Get();
-		fmt.Println(selection)
-		continue
-		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged
+
+		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged (can't use because on X11, it doesn't always fire when expected)
 		currentSelectionLock.RLock()
 		if reflect.DeepEqual(selection,currentSelection){
 			currentSelectionLock.RUnlock()
@@ -112,7 +106,6 @@ func readFromLocal(){
 		recievedItemsLock.Unlock()
 
 		queueItems("local",selection);
-		fmt.Println("Queued for local:",selection)
 
 	}
 
@@ -142,7 +135,6 @@ func readFromRemote(conn io.Reader){
 		recievedItemsLock.Unlock()
 
 		queueItems("remote",selection)
-		fmt.Println("Queued for remote:",selection)
 	}
 }
 
@@ -211,11 +203,17 @@ func main(){
 		
 	}
 	
+	runtime.LockOSThread()
 	clipboard.Init()
 	go readFromRemote(conn)
-	go readFromLocal()
 	go Process(conn)
-
+	readFromLocal() //Can't be in goroutine as accessing becomes sporadic on X11
+	
+	//go func(){
+		//for {
+			//fmt.Println(clipboard.Get())
+		//}
+	//}()
 	clipboard.Wait()
 
 

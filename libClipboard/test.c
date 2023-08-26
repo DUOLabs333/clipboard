@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <unistd.h>
 int main(int argc, char** argv){
-	//clipboard_has_changed();
     clipboard_init();
+    clipboard_has_changed();
 	Selection result=get();
 
 	for(int i=0;i<result.num_formats;i++){

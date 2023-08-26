@@ -21,7 +21,6 @@ func ClipboardHasChanged(){
 	C.clipboard_has_changed()
 }
 
-
 func Get() protocol.Selection{
 	clipboardLock.RLock()
 	defer clipboardLock.RUnlock()

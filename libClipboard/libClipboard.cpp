@@ -20,8 +20,6 @@
 int foo=1;
 char *bar[]={""};
 
-//Make struct for c that has qtguiapplication, so c programs don't have to point to it
-
 bool operator!=(const Selection& a, const Selection& b){ //C++ doesn't have a default struct comparator
 	if (a.num_formats!=b.num_formats){
 		return true;
@@ -47,17 +45,12 @@ extern "C" {
 	Selection get(){
 
 		auto mime=qGuiApp->clipboard()->mimeData(QClipboard::Clipboard);
-		//Allocate list 
-
-		auto result=new_selection(mime->formats().size());
-
+        
+        auto formats=mime->formats();
+		auto result=new_selection(formats.size());
+       
 		for( int i=0; i<result.num_formats; i++){
-		    if (i>=mime->formats().size()){ //Pointer may be invalidated at any point
-		      result.num_formats=mime->formats().size();
-		      break;
-		    }
-			auto format=mime->formats()[i];
-			result.formats[i]=Format();
+			auto format=formats[i];
 			result.formats[i].name=strdup(format.toStdString().c_str()); //mime goes out of scope when returning, so we don't want to keep pointers to a deleted object
 			result.formats[i].data=strdup(mime->data(format).data());
 		}
@@ -70,7 +63,6 @@ extern "C" {
 
 		auto mime= new QMimeData;
 		for(int i=0; i<sel.num_formats;i++){
-			//mime->setData(QString::fromUtf8(sel.formats[i].name,-1),QByteArray::fromRawData(sel.formats[i].data,strlen(sel.formats[i].data)));
 			mime->setData(strdup(sel.formats[i].name),strdup(sel.formats[i].data));
 		}
 
@@ -81,6 +73,9 @@ extern "C" {
 		auto result = Selection();
 		result.num_formats=len;
 		result.formats=(Format *)malloc(len*sizeof(Format));
+		for( int i=0; i<result.num_formats; i++){
+		  result.formats[i]=Format();
+		}
 		return result;
 
 
