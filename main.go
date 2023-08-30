@@ -203,7 +203,7 @@ func main(){
 		
 	}
 	
-	runtime.LockOSThread()
+	runtime.LockOSThread() //So Init and Wait are in the same thread
 	clipboard.Init()
 	go readFromRemote(conn)
 	go Process(conn)
@@ -216,7 +216,7 @@ func main(){
 		//}
 	//}()
 	
-	select{}
+	clipboard.Wait()
 
 
 }

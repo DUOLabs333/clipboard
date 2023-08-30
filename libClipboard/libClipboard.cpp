@@ -3,12 +3,14 @@
 
 #include <QtCore/QString>
 #include <QtCore/QMimeData>
-#include<QtCore/QObject>
+#include <QtCore/QObject>
+#include <QtCore/QThread>
 
 #include <corelib/plugin/qplugin.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "libClipboard.h"
+#include <ctime>
 
 #ifdef __APPLE__
 	Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin);
@@ -36,14 +38,18 @@ bool operator!=(const Selection& a, const Selection& b){ //C++ doesn't have a de
 extern "C" {
     
     void clipboard_wait(){
-        qGuiApp->exec();
+        //qGuiApp->exec();
+        while(1){
+            qGuiApp->sendPostedEvents();
+            qGuiApp->processEvents();
+           QThread::sleep(1);
+        }
     }
     
     void* clipboard_init(){
         return new QGuiApplication(foo,bar);
     }
 	Selection get(){
-        qGuiApp->processEvents();
 		auto mime=qGuiApp->clipboard()->mimeData(QClipboard::Clipboard);
         
         auto formats=mime->formats();
@@ -54,20 +60,21 @@ extern "C" {
 			result.formats[i].name=strdup(format.toStdString().c_str()); //mime goes out of scope when returning, so we don't want to keep pointers to a deleted object
 			result.formats[i].data=strdup(mime->data(format).data());
 		}
-
 	return result;
 	}
 
 
 	void set(Selection sel){
-        qGuiApp->processEvents();
 		auto mime= new QMimeData;
 		for(int i=0; i<sel.num_formats;i++){
 			mime->setData(strdup(sel.formats[i].name),strdup(sel.formats[i].data));
 		}
+		//auto test=std::to_string(time(NULL));
+		//fprintf(stderr,"%s\n",test);
+		//mime->setData("TIMESTAMP",QByteArray::fromStdString(test));
 
 		qGuiApp->clipboard()->setMimeData(mime,QClipboard::Clipboard);
-		qGuiApp->processEvents();
+		//QThread::msleep(50);
 	}
 	
 	Selection new_selection(int len){

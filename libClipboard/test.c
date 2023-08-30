@@ -18,6 +18,7 @@ int main(int argc, char** argv){
 		}
 	}
 	set(result);
+	sleep(1);
 	//sleep(1);
 	result=get();
 	for(int i=0;i<result.num_formats;i++){
