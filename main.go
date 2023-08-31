@@ -77,7 +77,7 @@ func dequeueItems() (src string,selection protocol.Selection){
 
 func readFromLocal(){
 	for {
-		//clipboard.ClipboardHasChanged()
+		clipboard.ClipboardHasChanged()
 		selection:=clipboard.Get();
 
 		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged (can't use because on X11, it doesn't always fire when expected)
@@ -117,14 +117,20 @@ func readFromRemote(conn io.Reader){
 
 	fmt.Println("Hello!")
 	for {
-		line, _, _ :=scanner.ReadLine()
+		line:=make([]byte,0)
+		frag:=make([]byte,0)
+		incomplete:=true
+		for (incomplete){
+			frag, incomplete, _ =scanner.ReadLine()
+			line=append(line,frag...)
+		}	
 		if len(line)==0{
 			continue
 		}
 		
 		selection,err:=protocol.Decode(line)
 		if err!=nil{
-			fmt.Println("Decode error!")
+			fmt.Println("Decode error:",err)
 			continue
 		}
 		fmt.Println("Recieved!")

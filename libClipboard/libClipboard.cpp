@@ -38,17 +38,18 @@ bool operator!=(const Selection& a, const Selection& b){ //C++ doesn't have a de
 extern "C" {
     
     void clipboard_wait(){
-        //qGuiApp->exec();
         while(1){
-            qGuiApp->sendPostedEvents();
             qGuiApp->processEvents();
-           QThread::sleep(1);
+            #ifdef __linux__
+                QThread::msleep(50); //Without the sleep, processEvents will be too fast for, so get and set will be delayed and be inconsistently run (this is also why we don't use exec())
+            #endif
         }
     }
     
     void* clipboard_init(){
         return new QGuiApplication(foo,bar);
     }
+    
 	Selection get(){
 		auto mime=qGuiApp->clipboard()->mimeData(QClipboard::Clipboard);
         
@@ -69,12 +70,8 @@ extern "C" {
 		for(int i=0; i<sel.num_formats;i++){
 			mime->setData(strdup(sel.formats[i].name),strdup(sel.formats[i].data));
 		}
-		//auto test=std::to_string(time(NULL));
-		//fprintf(stderr,"%s\n",test);
-		//mime->setData("TIMESTAMP",QByteArray::fromStdString(test));
 
 		qGuiApp->clipboard()->setMimeData(mime,QClipboard::Clipboard);
-		//QThread::msleep(50);
 	}
 	
 	Selection new_selection(int len){
