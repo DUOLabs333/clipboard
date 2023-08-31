@@ -77,7 +77,9 @@ func dequeueItems() (src string,selection protocol.Selection){
 
 func readFromLocal(){
 	for {
-		clipboard.ClipboardHasChanged()
+		if runtime.GOOS!="darwin"{
+			clipboard.ClipboardHasChanged()
+		}
 		selection:=clipboard.Get();
 
 		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged (can't use because on X11, it doesn't always fire when expected)
