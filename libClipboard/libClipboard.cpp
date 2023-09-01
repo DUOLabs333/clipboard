@@ -96,12 +96,7 @@ extern "C" {
 
 	void clipboard_has_changed(){
 		#ifdef __APPLE__ //On MacOS, only works when app window is in focus. So, must do polling
-			auto previous_selection=get();
-			while(true){
-				if (get()!=previous_selection){
-					return;
-				}
-			}
+			QThread::sleep(5);
 		#else
 			QEventLoop loop;
 			auto connection=QObject::connect(qGuiApp->clipboard(),&QClipboard::dataChanged,&loop,&QEventLoop::quit);
