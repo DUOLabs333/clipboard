@@ -117,9 +117,7 @@ func readFromRemote(){
 			connLock.RUnlock()
 			
 			if err!=nil{
-				fmt.Println(err)
 				reconnectToServer()
-				
 				connLock.RLock()
 				scanner.Reset(conn) //Set scanner to new non-closed connection
 				connLock.RUnlock()
@@ -141,8 +139,7 @@ func Process(){
 		
 		selection, err := protocol.Decode(data)
 		if (err!=nil){
-			fmt.Println("Decode Error!")
-			panic(err)
+			fmt.Println("Decode Error:",err)
 		}
 		
 		hash := protocol.Hash(selection)
