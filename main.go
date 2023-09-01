@@ -18,11 +18,8 @@ import (
 
 )
 
-var clipboardItems=make([]protocol.Selection,0)
-var clipboardItemsLock sync.RWMutex
 
-var clipboardSources=make([]string,0)
-var clipboardSourcesLock sync.RWMutex
+var clipboardItems=make(chan [2][]byte)
 
 var recievedItems map[string]int = make(map[string]int)
 var recievedItemsLock sync.RWMutex
@@ -30,142 +27,164 @@ var recievedItemsLock sync.RWMutex
 var currentSelection protocol.Selection
 var currentSelectionLock sync.RWMutex
 
-func lockItems(){
-	clipboardItemsLock.Lock()
-	clipboardSourcesLock.Lock()
+var conn io.ReadWriteCloser
+var connLock sync.RWMutex
+
+var isServer bool
+var hostAddr string
+
+func queueItem(src string,data []byte){
+	clipboardItems <- [2][]byte{[]byte(src),data};
 }
 
-func unlockItems(){
-	clipboardItemsLock.Unlock();
-	clipboardSourcesLock.Unlock()
-}
-
-func rLockItems(){
-	clipboardItemsLock.RLock()
-	clipboardSourcesLock.RLock()
-}
-
-func rUnlockItems(){
-	clipboardItemsLock.RUnlock();
-	clipboardSourcesLock.RUnlock()
-}
-
-func queueItems(src string,selection protocol.Selection){
-	lockItems()
-	defer unlockItems()
-
-	clipboardItems=append(clipboardItems,selection);
-	clipboardSources=append(clipboardSources,src);
-	fmt.Printf("Queued for %s: %v\n",src,selection)
-
-
-}
-
-func dequeueItems() (src string,selection protocol.Selection){
-	lockItems()
-	defer unlockItems()
-
-	src=clipboardSources[0]
-	selection=clipboardItems[0]
-
-	clipboardSources=clipboardSources[1:]
-	clipboardItems=clipboardItems[1:]
-
+func dequeueItem() (src string, data []byte){
+	item:=<-clipboardItems
+	src_byte, data:= item[0], item[1]
+	
+	src=string(src_byte)
+	
 	return
 }
 
+func reconnectToServer(){
+	connLock.Lock()
+	defer connLock.Unlock()
+	
+	if !isServer{ //Only clients need to reconnect to a server --- a server can't reconnect to itself
+		for(true){
+			if conn!=nil{ //If nil, you definitely need to (re)connect
+				_,err:=conn.Write([]byte("a\n")) //We can write this because the server will just ignore it with a decode error
+				if err==nil{
+					break
+				}
+				conn.Close()
+			}
+		
+			for(true){
+				var err error
+				conn,err=net.Dial("tcp",fmt.Sprintf("%s:%d",hostAddr,8001))
+				if err==nil{
+					break
+				}
+			}
+			
+		}
+		fmt.Println("Reconnected!")
+	}
+}
 
 func readFromLocal(){
 	for {
 		if runtime.GOOS!="darwin"{
 			clipboard.ClipboardHasChanged()
 		}
+		
 		selection:=clipboard.Get();
 
-		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged (can't use because on X11, it doesn't always fire when expected)
+		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged (can't use on MacOS though)
 		currentSelectionLock.RLock()
 		if reflect.DeepEqual(selection,currentSelection){
 			currentSelectionLock.RUnlock()
 			continue
 		}
-		
 		currentSelectionLock.RUnlock()
 
 		currentSelectionLock.Lock()
 		currentSelection=selection
 		currentSelectionLock.Unlock()
 
-		hash := protocol.Hash(selection)
-
-		//Proto-ACK functionality. If you recieve selection, don't send the same selection (will just lead to a loop). Acknowledge you recieved it by ignoring it in the clipboard.
-
-		recievedItemsLock.Lock()
-		if recievedItems[hash]>0{
-			recievedItems[hash]-=1
-			recievedItemsLock.Unlock()
-			continue
-		}
-		recievedItemsLock.Unlock()
-
-		queueItems("local",selection);
+		queueItem("local",protocol.Encode(selection));
 
 	}
 
 }
 
 
-func readFromRemote(conn io.Reader){
+func readFromRemote(){
 	scanner:=bufio.NewReader(conn)
 
 	fmt.Println("Hello!")
 	for {
 		line:=make([]byte,0)
+		
 		frag:=make([]byte,0)
 		incomplete:=true
-		for (incomplete){
-			frag, incomplete, _ =scanner.ReadLine()
-			line=append(line,frag...)
+		var err error
+		for (incomplete){ //Wait for whole line
+		
+			connLock.RLock()
+			frag, incomplete, err =scanner.ReadLine()
+			connLock.RUnlock()
+			
+			if err!=nil{
+				fmt.Println(err)
+				reconnectToServer()
+				
+				connLock.RLock()
+				scanner.Reset(conn) //Set scanner to new non-closed connection
+				connLock.RUnlock()
+			}
+			line=append(line,frag...) //Reading is done
 		}	
 		if len(line)==0{
 			continue
 		}
 		
-		selection,err:=protocol.Decode(line)
-		if err!=nil{
-			fmt.Println("Decode error:",err)
-			continue
-		}
-		fmt.Println("Recieved!")
-		hash := protocol.Hash(selection)
-
-		recievedItemsLock.Lock()
-		recievedItems[hash]+=1
-		recievedItemsLock.Unlock()
-
-		queueItems("remote",selection)
+		queueItem("remote",line)
 	}
 }
 
-func Process(conn io.Writer){
+func Process(){
 	for{
 		//Wait for items
-		rLockItems()
-		if len(clipboardSources)==0{
-			rUnlockItems()
-			continue
+		source, data := dequeueItem()
+		
+		selection, err := protocol.Decode(data)
+		if (err!=nil){
+			fmt.Println("Decode Error!")
+			panic(err)
 		}
-		rUnlockItems()
-
-		source, data := dequeueItems()
-
+		
+		hash := protocol.Hash(selection)
+		
 		if source=="local"{
+		
+			//Proto-ACK functionality. If you recieve selection, don't send the same selection (will just lead to a loop). Acknowledge you recieved it by ignoring it in the clipboard.
+			recievedItemsLock.Lock()
+			if recievedItems[hash]>0{
+				recievedItems[hash]-=1
+				recievedItemsLock.Unlock()
+				continue
+			}
+			recievedItemsLock.Unlock()
+			
 			fmt.Println("Sending...")
-			conn.Write(protocol.Encode(data))
+			
+			for (true){  
+				connLock.RLock()
+				_,err:=conn.Write(data)
+				connLock.RUnlock()
+				if (err!=nil){
+					reconnectToServer()
+				}else{
+					break //Writing is done, exit
+				}
+			}
 			fmt.Println("Sent!")
+			
+			
 		}else if source=="remote"{
+		
+			fmt.Println("Recieved!")
+	
+			recievedItemsLock.Lock()
+			recievedItems[hash]+=1
+			recievedItemsLock.Unlock()
+			
 			fmt.Println("Setting...")
-			clipboard.Set(data)
+			clipboard.Set(selection)
 			fmt.Println("Set!")
+			
 		}
 
 	}
@@ -183,47 +202,42 @@ func exitHandler(){
 func main(){
 	go exitHandler()
 
-	var host bool
-	var host_help_text string
-	var conn io.ReadWriter
-
+	
 	if runtime.GOOS=="darwin"{
-		host=true
+		isServer=true
 	}else if runtime.GOOS=="linux"{
-		host=false
+		isServer=false
 	}
-
-	if host{
+	
+	
+	var host_help_text string
+	
+	if isServer{
 		host_help_text="server will be running on"
 	}else{
 		host_help_text="client will be connecting to"
 	}
 
-	Host:=flag.String("host","127.0.0.1",fmt.Sprintf("IP where the %s",host_help_text))
+	flag.StringVar(&hostAddr,"host","127.0.0.1",fmt.Sprintf("IP where the %s",host_help_text))
 	flag.Parse()
 
-	if host{
+	if isServer{
 		server:=new(server.Server)
-		server.Start(*Host,8001)
+		server.Start(hostAddr,8001)
 		conn=server
-	}else{
-		conn,_=net.Dial("tcp",fmt.Sprintf("%s:%d",*Host,8001))
-		
 	}
 	
+	reconnectToServer()
+
+	//Go from busy loop to channels
+
 	runtime.LockOSThread() //So Init and Wait are in the same thread
 	clipboard.Init()
-	go readFromRemote(conn)
-	go Process(conn)
+	
+	go readFromRemote()
+	go Process()
 	go readFromLocal()
 
-	//go func(){
-		//for {
-			//clipboard.Wait()
-			//fmt.Println(clipboard.Get())
-		//}
-	//}()
-	
 	clipboard.Wait()
 
 
