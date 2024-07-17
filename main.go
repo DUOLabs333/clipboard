@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"fmt"
 	"net"
-	"bufio"
+"bufio"
 	"io"
 	"sync"
 	"reflect"
@@ -52,22 +52,22 @@ func reconnectToServer(){
 	
 	if !isServer{ //Only clients need to reconnect to a server --- a server can't reconnect to itself
 		for(true){
-			if conn!=nil{ //If nil, you definitely need to (re)connect
+	if conn!=nil{ //If nil, you definitely need to (re)connect
 				_,err:=conn.Write([]byte("a\n")) //We can write this because the server will just ignore it with a decode error
-				if err==nil{
-					break
-				}
+	if err==nil{
+	break
+		}
 				conn.Close()
 			}
-		
+
 			for(true){
 				var err error
 				conn,err=net.Dial("tcp",fmt.Sprintf("%s:%d",hostAddr,8001))
 				if err==nil{
 					break
 				}
-			}
-			
+	}
+
 		}
 		fmt.Println("Reconnected!")
 	}
@@ -76,7 +76,7 @@ func reconnectToServer(){
 func readFromLocal(){
 	for {
 		if runtime.GOOS!="darwin"{
-			clipboard.ClipboardHasChanged()
+		clipboard.ClipboardHasChanged()
 		}
 		
 		selection:=clipboard.Get();
