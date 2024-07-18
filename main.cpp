@@ -202,7 +202,7 @@ int main(){
 			clientIds.erase(it);
 			clientsMutex.unlock();
 			client.conn=asio_server_accept(server);
-			std::thread(readFromRemote,id);
+			std::thread((void(*)(int))readFromRemote,id).detach();
 		}
 			
 	#endif
