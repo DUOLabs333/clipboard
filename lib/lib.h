@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stddef.h>
 #ifdef __cplusplus
 extern "C"{
 #endif
@@ -6,13 +7,13 @@ extern "C"{
 //Keep track of number of formats, but just make it a list of formats and their data
 typedef struct {
 	char *name;
-	int namelen;
+	size_t namelen;
 	uint8_t *data;
-	int datalen;
+	size_t datalen;
 } Format;
 
 typedef struct {
-	int num_formats;
+	size_t num_formats;
 	Format *formats;
 } Selection;
 

@@ -38,7 +38,7 @@ class main(BuildBase):
 
     STATIC_LIBS=[lib, "external/qtbase/build/lib/*", conn.library]
 
-    INCLUDE_PATHS=[conn.library, get_dep_path("glaze")]
+    INCLUDE_PATHS=[conn.library, get_dep_path("glaze","include")]
 
     FRAMEWORKS=['CoreFoundation', 'CoreServices', 'CoreGraphics', 'IOKit', 'Metal', 'AppKit', 'Security', 'CoreVideo', 'IOSurface', 'Carbon', 'QuartzCore']
 
