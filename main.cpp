@@ -94,22 +94,19 @@ void readFromRemote(Conn& conn){
 	char* buf;
 	int size;
 	while(true){
+		std::unique_lock lk(conn.mu);
 		if (conn.stop.test()){
 			break;
 		}
-		{
-			asio_read(conn.conn,&buf, &size, &err);
-			if (err){
-				#ifdef CLIENT
-					clientConn.mu.lock();
-					reconnectToServer();
-					clientConn.mu.unlock();
-					continue;
-				#else
-					break;
-				#endif
-			}
 
+		asio_read(conn.conn,&buf, &size, &err);
+		if (err){
+			#ifdef CLIENT
+				reconnectToServer();
+				continue;
+			#else
+				break;
+			#endif
 		}
 
 		std::string str(buf, size);
@@ -154,12 +151,12 @@ void Process(){
 				bool err=true;
 
 				while(err){
+					clientConn.mu.lock();
 					asio_write(clientConn.conn, data.data(), data.size(), &err);	
 					if (err){
-						clientConn.mu.lock();
 						reconnectToServer();
-						clientConn.mu.unlock();
 					}
+					clientConn.mu.unlock();
 				}
 			#else
 				clientsMutex.lock_shared();
@@ -167,15 +164,11 @@ void Process(){
 					bool err;
 
 					val.mu.lock();
-					if (val.conn==NULL){
-						err=true;
-					}else{
-						asio_write(val.conn, data.data(), data.size(), &err);
-					}
-					val.mu.unlock();
+					asio_write(val.conn, data.data(), data.size(), &err);
 					if (err){
 						val.stop.test_and_set();
 					}
+					val.mu.unlock();
 				}
 				clientsMutex.unlock_shared();
 			#endif
@@ -203,7 +196,10 @@ int main(){
 	std::thread t2(Process);
 
 	#ifdef CLIENT
+		clientConn.mu.lock();
 		reconnectToServer();
+		clientConn.mu.unlock();
+
 		std::thread t3((void(*)(Conn&))readFromRemote, std::ref(clientConn));
 		t3.join();
 	#else
