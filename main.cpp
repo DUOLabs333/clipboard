@@ -27,6 +27,7 @@ std::unordered_map<std::string, int> recievedItems;
 
 protocol::Selection currentSelection;
 
+//Concurrency guarentee --- only one thread can read or modify a Conn at a time. When a thread is finished reading/modifying a Conn, it must either be valid or NULL.
 typedef struct {
 	AsioConn* conn = NULL;
 	std::mutex mu;
@@ -201,27 +202,31 @@ int main(){
 		clientConn.mu.unlock();
 
 		std::thread t3((void(*)(Conn&))readFromRemote, std::ref(clientConn));
-		t3.join();
 	#else
+		std::thread t3([]{}); //Just a dummy one to match the client
 		auto server=asio_server_init(1);
-		for(;;){
-			clientsMutex.lock();
-			auto it=clientIds.begin();
-			auto id=*it;
-			auto& client = clients[id];
-			clientIds.erase(it);
-			clientsMutex.unlock();
+		std::thread([]{
+			for(;;){
+				clientsMutex.lock();
+				auto it=clientIds.begin();
+				auto id=*it;
+				auto& client = clients[id];
+				clientIds.erase(it);
+				clientsMutex.unlock();
 
-			client.mu.lock();
-			client.conn=asio_server_accept(server);
-			client.mu.unlock();
+				client.mu.lock();
+				client.conn=asio_server_accept(server);
+				client.mu.unlock();
 
-			std::thread((void(*)(int))readFromRemote,id).detach();
-		}
+				std::thread((void(*)(int))readFromRemote,id).detach();
+			}
+		}).detach();
 			
 	#endif
 
 	clip::Run();
+
+	t3.join();
 	t1.join();
 	t2.join();
 }
