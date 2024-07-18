@@ -69,7 +69,7 @@ void readFromLocal(){
 		#ifndef __APPLE__
 			clip::Changed();
 		#endif
-
+		
 		auto selection=clip::Get();
 		
 		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged (can't usec on MacOS though)
@@ -77,6 +77,7 @@ void readFromLocal(){
 			continue;
 		}
 		
+		printf("Get change!\n");
 		currentSelection=selection;
 		
 		auto str=protocol::Encode(selection);
@@ -97,11 +98,12 @@ void readFromRemote(Conn& conn){
 			break;
 		}
 		{
-			std::unique_lock lk(conn.mu);
 			asio_read(conn.conn,&buf, &size, &err);
 			if (err){
 				#ifdef CLIENT
+					clientConn.mu.lock();
 					reconnectToServer();
+					clientConn.mu.unlock();
 					continue;
 				#else
 					break;
@@ -122,8 +124,12 @@ void readFromRemote(int id){
 
 	readFromRemote(conn);
 
-	clientsMutex.lock();
+	conn.mu.lock();
 	asio_close(conn.conn);
+	conn.conn=NULL;
+	conn.mu.unlock();
+
+	clientsMutex.lock();
 	clients.erase(id);
 	clientIds.insert(id);
 	clientsMutex.unlock();
@@ -148,17 +154,25 @@ void Process(){
 				bool err=true;
 
 				while(err){
-					std::unique_lock lk(clientConn.mu);
 					asio_write(clientConn.conn, data.data(), data.size(), &err);	
 					if (err){
+						clientConn.mu.lock();
 						reconnectToServer();
+						clientConn.mu.unlock();
 					}
 				}
 			#else
 				clientsMutex.lock_shared();
 				for (auto& [key, val]: clients){
 					bool err;
-					asio_write(val.conn, data.data(), data.size(), &err);
+
+					val.mu.lock();
+					if (val.conn==NULL){
+						err=true;
+					}else{
+						asio_write(val.conn, data.data(), data.size(), &err);
+					}
+					val.mu.unlock();
 					if (err){
 						val.stop.test_and_set();
 					}
@@ -201,7 +215,11 @@ int main(){
 			auto& client = clients[id];
 			clientIds.erase(it);
 			clientsMutex.unlock();
+
+			client.mu.lock();
 			client.conn=asio_server_accept(server);
+			client.mu.unlock();
+
 			std::thread((void(*)(int))readFromRemote,id).detach();
 		}
 			
