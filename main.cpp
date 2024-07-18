@@ -1,8 +1,8 @@
-#include <exception>
 #include <queue>
 #include <tuple>
 #include <string>
 #include <map>
+#include <unordered_map>
 #include <condition_variable>
 #include <asio_c.h>
 #include <shared_mutex>
@@ -10,7 +10,8 @@
 #include <set>
 #include <csignal>
 #include <thread>
-#include "../clip/clip.hpp"
+#include "clip/clip.hpp"
+#include "protocol/protocol.hpp"
 
 enum Source {
 	LOCAL,
@@ -22,9 +23,9 @@ std::queue<clipboardItem> clipboardItems;
 std::mutex clipboardItemsMutex;
 std::condition_variable clipboardItemsCV;
 
-std::map<Selection, int> recievedItems;
+std::unordered_map<std::string, int> recievedItems;
 
-Selection currentSelection;
+protocol::Selection currentSelection;
 
 typedef struct {
 	AsioConn* conn = NULL;
@@ -37,12 +38,13 @@ std::shared_mutex clientsMutex;
 std::set<int> clientIds = {0,1,2,3,4,5,6,7,8,9,10}; //Good enough for now
 
 #ifdef CLIENT
-	Conn* clientConn;
+	Conn clientConn;
 #endif
 
 void queueItem(Source source, std::string& data){
 	std::unique_lock lk(clipboardItemsMutex);
 	clipboardItems.push({source, data});
+	clipboardItemsCV.notify_one();
 }
 
 clipboardItem dequeueItem(){
@@ -58,14 +60,14 @@ clipboardItem dequeueItem(){
 void reconnectToServer(){
 	#ifdef CLIENT
 		asio_close(clientConn.conn);
-		globalConn.conn=asio_connect(1);
+		clientConn.conn=asio_connect(1);
 	#endif
 }
 
 void readFromLocal(){
 	for(;;){
 		#ifndef __APPLE__
-			clip::HasChanged();
+			clip::Changed();
 		#endif
 
 		auto selection=clip::Get();
@@ -76,8 +78,9 @@ void readFromLocal(){
 		}
 		
 		currentSelection=selection;
-
-		queueItem(LOCAL, protocol::Encode(selection));	
+		
+		auto str=protocol::Encode(selection);
+		queueItem(LOCAL, str);	
 		
 	}
 }
@@ -129,11 +132,11 @@ void readFromRemote(int id){
 void Process(){
 	for(;;){
 		auto [source, data] = dequeueItem();
-		auto selection, err = protocol::Decode(data);	
+		auto selection = protocol::Decode(data);	
 	
 		//Proto-ACK functionality. If you recieve selection, don't send the same selection (will just lead to a loop). Acknowledge you recieved it by ignoring it in the clipboard.
 		if (source==LOCAL){
-			auto& count=recievedItems.try_or_emplace(selection, 0).first.second;
+			auto& count=recievedItems.try_emplace(data, 0).first->second;
 			if (count>0){
 				count--;
 				continue;
@@ -145,8 +148,8 @@ void Process(){
 				bool err=true;
 
 				while(err){
-					std::unique_lock lk(mu);
-					asio_write(globalConn.conn, data.data(), data.size(), &err);	
+					std::unique_lock lk(clientConn.mu);
+					asio_write(clientConn.conn, data.data(), data.size(), &err);	
 					if (err){
 						reconnectToServer();
 					}
@@ -168,7 +171,7 @@ void Process(){
 
 		}else if (source==REMOTE){
 			printf("Recieved!\n");
-			recievedItems[selection]++;
+			recievedItems[data]++;
 
 			printf("Setting!\n");
 			clip::Set(selection);
@@ -187,7 +190,7 @@ int main(){
 
 	#ifdef CLIENT
 		reconnectToServer();
-		std::thread t3(readFromRemote, clientConn);
+		std::thread t3((void(*)(Conn&))readFromRemote, std::ref(clientConn));
 		t3.join();
 	#else
 		auto server=asio_server_init(1);

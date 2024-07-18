@@ -2,6 +2,7 @@ qtbase/
 *.a
 *.o
 *.out
+*.pyc
 clipboard
 av-forward/
 server/

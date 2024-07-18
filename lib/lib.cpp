@@ -7,6 +7,7 @@
 #include <QtCore/QThread>
 
 #include <corelib/plugin/qplugin.h>
+#include <cstdint>
 #include <stdio.h>
 #include <stdlib.h>
 #include "lib.h"
@@ -27,7 +28,7 @@ char *bar[]={""};
 
 
 bool operator!=(const Format& a, const Format& b){
-	(std::string_view(a.namelen, a.name) != std::string_view(b.namelen, b.name)) || (std::string_view(a.datalen, a.data) != std::string_view(b.datalen, b.data)); 
+	(a.namelen!=b.namelen) || (memcmp(a.name,b.name,a.namelen)) || (a.datalen!=b.datalen) || (memcmp(a.data, b.data, a.datalen)); 
 }
 
 bool operator!=(const Selection& a, const Selection& b){ //C++ doesn't have a default struct comparator
@@ -53,7 +54,7 @@ std::pair<char*, int> string_to_char(std::string str){
 
 	memcpy(buf, str.data(), size);
 
-	return {buf, int};
+	return {buf, size};
 }
 
 std::string char_to_string(char* buf, int size){
@@ -78,18 +79,21 @@ extern "C" {
 	auto mime=qGuiApp->clipboard()->mimeData(QClipboard::Clipboard);
 
 	auto formats=mime->formats();
-	auto result=new_selection(formats.size());
+	auto result=clipboard_new_selection(formats.size());
 
 	for( int i=0; i<result.num_formats; i++){
 		auto& mime_format=formats[i];
 		auto& result_format=result.formats[i];
 
-		auto& name=mime_format.toStdString();
-		auto& data=mime->data(mime_format);
+		auto name=mime_format.toStdString();
+		auto data=mime->data(mime_format).toStdString();
 		
 		std::tie(result_format.name, result_format.namelen) = string_to_char(name); //mime goes out of scope when returning, so we don't want to keep pointers to a deleted object
+		
+		char* data_buf;
+		std::tie(data_buf, result_format.datalen) = string_to_char(data);
 
-		std::tie(result_format.data, result_format.datalen) = string_to_char(data);
+		result_format.data=(uint8_t*)data_buf;
 	}
 	return result;
 	}
@@ -99,7 +103,7 @@ extern "C" {
 		auto mime= new QMimeData;
 		for(int i=0; i<sel.num_formats;i++){
 			auto& sel_format=sel.formats[i];
-			mime->setData(QString(sel_format.name, sel_format.namelen),QByteArray(sel_format.data, sel_format.datalen));
+			mime->setData(QString::fromUtf8(sel_format.name, sel_format.namelen),QByteArray((char*)sel_format.data, sel_format.datalen));
 		}
 
 		qGuiApp->clipboard()->setMimeData(mime,QClipboard::Clipboard);

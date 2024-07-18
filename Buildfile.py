@@ -1,5 +1,7 @@
 import subprocess
 import os
+
+conn=import_build("../asio_c")
 class qt6(BuildBase):
    def build(cls):
     os.chdir("external")
@@ -24,15 +26,19 @@ class qt6(BuildBase):
     subprocess.run(["cmake", "--build", ".", "--parallel"]+JOBS)
 
 
-class libClipboard(BuildBase):
-    SRC_FILES=["libClipboard/libClipboard.cpp"]
-    INCLUDE_FILES=["libClipboard/libClipboard.h"]
+class lib(BuildBase):
+    CWD="lib"
+    SRC_FILES=["lib.cpp"]
+    INCLUDE_PATHS=["../external/qtbase/build/include/", "../external/qtbase/src/"]
+    OUTPUT_TYPE=STATIC
 
 class main(BuildBase):
     
     SRC_FILES=["main.cpp", "protocol/*", "clip/*"]
 
-    STATIC_LIBS=[libClipboard, "qtbase/build/lib/*"]
+    STATIC_LIBS=[lib, "qtbase/build/lib/*", conn.library]
+
+    INCLUDE_PATHS=[conn.library]
 
     FRAMEWORKS=['CoreFoundation', 'CoreServices', 'CoreGraphics', 'IOKit', 'Metal', 'AppKit', 'Security', 'CoreVideo', 'IOSurface', 'Carbon', 'QuartzCore']
 
@@ -42,5 +48,5 @@ class main(BuildBase):
     def __init__(self):
         if PLATFORM=="darwin":
             self.STATIC_LIBS.append("qtbase/build/plugins/platforms/libqcocoa.a")
-        elif ("WAYLAND_DISPLAY" not in os.environ) and ("DISPLAY" in os.envion):
+        elif ("WAYLAND_DISPLAY" not in os.environ) and ("DISPLAY" in os.environ):
             self.STATIC_LIBS.append("qtbase/build/plugins/platforms/libqxcb.a")
