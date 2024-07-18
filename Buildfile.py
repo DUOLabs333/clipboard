@@ -29,17 +29,18 @@ class libClipboard(BuildBase):
     INCLUDE_FILES=["libClipboard/libClipboard.h"]
 
 class main(BuildBase):
+    
+    SRC_FILES=["main.cpp", "protocol/*", "clip/*"]
+
+    STATIC_LIBS=[libClipboard, "qtbase/build/lib/*"]
 
     FRAMEWORKS=['CoreFoundation', 'CoreServices', 'CoreGraphics', 'IOKit', 'Metal', 'AppKit', 'Security', 'CoreVideo', 'IOSurface', 'Carbon', 'QuartzCore']
 
     SHARED_LIBS=(["z"] if PLATFORM=="darwin" else ['double-conversion', 'm', 'double-conversion', 'xcb', 'X11', 'Xrender', 'xcb-shape', 'xcb-icccm', 'xcb-sync', 'xcb-xfixes', 'xcb-randr', 'xcb-keysyms', 'xcb-xkb', 'xcb-shm', 'xcb-image', 'xcb-render', 'xcb-render-util', 'xcb-xinput', 'xcb-cursor', 'X11-xcb', 'xkbcommon', 'xkbcommon-x11'])
 
-    STATIC_LIBS=["qtbase/build/lib/*.a"]
+    OUTPUT_NAME="clipboard"
     def __init__(self):
         if PLATFORM=="darwin":
             self.STATIC_LIBS.append("qtbase/build/plugins/platforms/libqcocoa.a")
         elif ("WAYLAND_DISPLAY" not in os.environ) and ("DISPLAY" in os.envion):
             self.STATIC_LIBS.append("qtbase/build/plugins/platforms/libqxcb.a")
-
-
-   pass 

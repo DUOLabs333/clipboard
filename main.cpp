@@ -10,6 +10,7 @@
 #include <set>
 #include <csignal>
 #include <thread>
+#include "../clip/clip.hpp"
 
 enum Source {
 	LOCAL,
@@ -64,10 +65,10 @@ void reconnectToServer(){
 void readFromLocal(){
 	for(;;){
 		#ifndef __APPLE__
-			clipboard::HasChanged();
+			clip::HasChanged();
 		#endif
 
-		auto selection=clipboard::Get();
+		auto selection=clip::Get();
 		
 		//Don't want to send the same thing twice --- may not be needed with clipboardHasChanged (can't usec on MacOS though)
 		if(selection==currentSelection){
@@ -170,7 +171,7 @@ void Process(){
 			recievedItems[selection]++;
 
 			printf("Setting!\n");
-			clipboard::Set(selection);
+			clip::Set(selection);
 			printf("Set!\n");
 
 		}
@@ -180,6 +181,7 @@ void Process(){
 int main(){
 	signal(SIGTERM, [](int) { raise(SIGINT); });
 
+	clip::Init();
 	std::thread t1(readFromLocal);
 	std::thread t2(Process);
 
@@ -191,16 +193,18 @@ int main(){
 		auto server=asio_server_init(1);
 		for(;;){
 			clientsMutex.lock();
-			auto& id=clientIds.begin();
-			auto& client = clients[*id];
-			clientIds.erase(id);
+			auto& it=clientIds.begin();
+			auto id=*it;
+			auto& client = clients[id];
+			clientIds.erase(it);
+			clientsMutex.unlock();
 			client.conn=asio_server_accept(server);
 			std::thread(readFromRemote,id);
 		}
 			
 	#endif
 
-	clipboard::Wait();
+	clip::Run();
 	t1.join();
 	t2.join();
 }

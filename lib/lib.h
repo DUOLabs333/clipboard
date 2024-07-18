@@ -1,4 +1,4 @@
-
+#include <stdint.h>
 #ifdef __cplusplus
 extern "C"{
 #endif
@@ -6,7 +6,9 @@ extern "C"{
 //Keep track of number of formats, but just make it a list of formats and their data
 typedef struct {
 	char *name;
-	char *data;
+	int namelen;
+	uint8_t *data;
+	int datalen;
 } Format;
 
 typedef struct {
@@ -14,17 +16,17 @@ typedef struct {
 	Format *formats;
 } Selection;
 
-Selection get();
+Selection clipboard_get();
 
-void set(Selection sel);
+void clipboard_set(Selection sel);
 
-void clipboard_has_changed();
+void clipboard_changed();
 
-void destroy_selection(Selection sel);
+void clipboard_destroy_selection(Selection sel);
 
-Selection new_selection(int len);
+Selection clipboard_new_selection(int len);
 
-void clipboard_wait();
+void clipboard_run();
 
 void* clipboard_init();
 
