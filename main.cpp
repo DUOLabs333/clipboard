@@ -196,7 +196,7 @@ int main(){
 		auto server=asio_server_init(1);
 		for(;;){
 			clientsMutex.lock();
-			auto& it=clientIds.begin();
+			auto it=clientIds.begin();
 			auto id=*it;
 			auto& client = clients[id];
 			clientIds.erase(it);
