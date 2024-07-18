@@ -36,7 +36,7 @@ class main(BuildBase):
     
     SRC_FILES=["main.cpp", "protocol/*", "clip/*"]
 
-    STATIC_LIBS=[lib, "qtbase/build/lib/*", conn.library]
+    STATIC_LIBS=[lib, "external/qtbase/build/lib/*", conn.library]
 
     INCLUDE_PATHS=[conn.library]
 
@@ -47,6 +47,6 @@ class main(BuildBase):
     OUTPUT_NAME="clipboard"
     def __init__(self):
         if PLATFORM=="darwin":
-            self.STATIC_LIBS.append("qtbase/build/plugins/platforms/libqcocoa.a")
+            self.STATIC_LIBS.append("external/qtbase/build/plugins/platforms/libqcocoa.a")
         elif ("WAYLAND_DISPLAY" not in os.environ) and ("DISPLAY" in os.environ):
-            self.STATIC_LIBS.append("qtbase/build/plugins/platforms/libqxcb.a")
+            self.STATIC_LIBS.append("external/qtbase/build/plugins/platforms/libqxcb.a")
