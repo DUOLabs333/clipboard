@@ -122,8 +122,8 @@ void readFromRemote(int id){
 
 	readFromRemote(conn);
 
-	asio_close(conn.conn);
 	clientsMutex.lock();
+	asio_close(conn.conn);
 	clients.erase(id);
 	clientIds.insert(id);
 	clientsMutex.unlock();
