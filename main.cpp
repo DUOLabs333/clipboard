@@ -1,3 +1,4 @@
+#include <mutex>
 #include <queue>
 #include <tuple>
 #include <string>
@@ -30,7 +31,7 @@ protocol::Selection currentSelection;
 //Concurrency guarentee --- only one thread can read or modify a Conn at a time. When a thread is finished reading/modifying a Conn, it must either be valid or NULL.
 typedef struct {
 	AsioConn* conn = NULL;
-	std::mutex mu;
+	std::shared_mutex mu;
 	std::atomic_flag stop = ATOMIC_FLAG_INIT;
 } Conn;
 
@@ -61,6 +62,7 @@ clipboardItem dequeueItem(){
 
 void reconnectToServer(){
 	#ifdef CLIENT
+		std::unique_lock lk(clientConn.mu);
 		printf("Reconnecting!\n");
 		asio_close(clientConn.conn);
 		clientConn.conn=asio_connect(1);
@@ -98,23 +100,25 @@ void readFromRemote(Conn& conn){
 	char* buf;
 	int size;
 	while(true){
-		printf("Hello!\n");
+		printf("Starting to read\n");
 		if (conn.stop.test()){
 			break;
 		}
 
-		
+		printf("Reading!\n");
+		conn.mu.lock_shared();
 		asio_read(conn.conn,&buf, &size, &err);
+		conn.mu.unlock_shared();
+		printf("Finished reading!\n");
 		if (err){
 			#ifdef CLIENT
-				conn.mu.lock();
 				reconnectToServer();
-				conn.mu.unlock();
 				continue;
 			#else
 				break;
 			#endif
 		}
+		
 
 		printf("%.*s\n", size, buf);
 		std::string str(buf, size);
@@ -160,25 +164,28 @@ void Process(){
 				bool err=true;
 
 				while(err){
+					{
+					std::shared_lock lk(clientConn.mu);
 					asio_write(clientConn.conn, data.data(), data.size(), &err);					
-					clientConn.mu.lock();
+					}
+
 					if (err){
 						reconnectToServer();
 						printf("Panic!\n");
 					}
-					clientConn.mu.unlock();
 				}
 			#else
 				clientsMutex.lock_shared();
 				for (auto& [key, val]: clients){
 					bool err;
-
-					val.mu.lock();
+					
+					{
+					std::shared_lock lk(val.mu);
 					asio_write(val.conn, data.data(), data.size(), &err);
 					if (err){
 						val.stop.test_and_set();
 					}
-					val.mu.unlock();
+					}
 				}
 				clientsMutex.unlock_shared();
 			#endif
@@ -206,9 +213,8 @@ int main(){
 	std::thread t2(Process);
 
 	#ifdef CLIENT
-		clientConn.mu.lock();
 		reconnectToServer();
-		clientConn.mu.unlock();
+
 
 		std::thread t3((void(*)(Conn&))readFromRemote, std::ref(clientConn));
 	#else
@@ -223,9 +229,10 @@ int main(){
 				clientIds.erase(it);
 				clientsMutex.unlock();
 
-				client.mu.lock();
+				{
+				std::unique_lock lk(client.mu);
 				client.conn=asio_server_accept(server);
-				client.mu.unlock();
+				}
 
 				std::thread((void(*)(int))readFromRemote,id).detach();
 			}
