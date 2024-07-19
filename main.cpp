@@ -43,8 +43,9 @@ std::set<int> clientIds = {0,1,2,3,4,5,6,7,8,9,10}; //Good enough for now
 #endif
 
 void queueItem(Source source, std::string& data){
-	std::unique_lock lk(clipboardItemsMutex);
+	clipboardItemsMutex.lock();
 	clipboardItems.push({source, data});
+	clipboardItemsMutex.unlock();
 	clipboardItemsCV.notify_one();
 }
 
@@ -60,8 +61,10 @@ clipboardItem dequeueItem(){
 
 void reconnectToServer(){
 	#ifdef CLIENT
+		printf("Reconnecting!\n");
 		asio_close(clientConn.conn);
 		clientConn.conn=asio_connect(1);
+		printf("Done reconnecting!\n");
 	#endif
 }
 
@@ -113,8 +116,8 @@ void readFromRemote(Conn& conn){
 			#endif
 		}
 
+		printf("%.*s\n", size, buf);
 		std::string str(buf, size);
-		printf("%*.s\n", size, buf);
 		queueItem(REMOTE, str);
 	}
 }
@@ -139,6 +142,7 @@ void readFromRemote(int id){
 
 void Process(){
 	for(;;){
+		printf("Dequeue!\n");
 		auto [source, data] = dequeueItem();
 		auto selection = protocol::Decode(data);	
 	
@@ -160,6 +164,7 @@ void Process(){
 					clientConn.mu.lock();
 					if (err){
 						reconnectToServer();
+						printf("Panic!\n");
 					}
 					clientConn.mu.unlock();
 				}
