@@ -72,9 +72,8 @@ void reconnectToServer(){
 
 void readFromLocal(){
 	for(;;){
-		#ifndef __APPLE__
-			clip::Changed();
-		#endif
+		clip::Changed();
+
 		
 		auto selection=clip::Get();
 		
