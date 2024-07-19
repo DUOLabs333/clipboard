@@ -83,7 +83,7 @@ void readFromLocal(){
 			continue;
 		}
 		
-		printf("Get change!\n");
+
 		currentSelection=selection;
 		
 		auto str=protocol::Encode(selection);
@@ -100,7 +100,7 @@ void readFromRemote(Conn& conn){
 	char* buf;
 	int size;
 	while(true){
-		printf("Starting to read\n");
+
 		if (conn.stop.test()){
 			break;
 		}
@@ -120,7 +120,7 @@ void readFromRemote(Conn& conn){
 		}
 		
 
-		printf("%.*s\n", size, buf);
+
 		std::string str(buf, size);
 		queueItem(REMOTE, str);
 	}
@@ -146,7 +146,7 @@ void readFromRemote(int id){
 
 void Process(){
 	for(;;){
-		printf("Dequeue!\n");
+
 		auto [source, data] = dequeueItem();
 		auto selection = protocol::Decode(data);	
 	
@@ -171,7 +171,7 @@ void Process(){
 
 					if (err){
 						reconnectToServer();
-						printf("Panic!\n");
+
 					}
 				}
 			#else
@@ -222,6 +222,7 @@ int main(){
 		std::thread([]{
 			auto server=asio_server_init(1);
 			for(;;){
+				auto conn=asio_server_accept(server);
 				clientsMutex.lock();
 				auto it=clientIds.begin();
 				auto id=*it;
@@ -231,7 +232,7 @@ int main(){
 
 				{
 				std::unique_lock lk(client.mu);
-				client.conn=asio_server_accept(server);
+				client.conn=conn;
 				}
 
 				std::thread((void(*)(int))readFromRemote,id).detach();
