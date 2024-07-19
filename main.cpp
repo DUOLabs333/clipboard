@@ -95,15 +95,18 @@ void readFromRemote(Conn& conn){
 	char* buf;
 	int size;
 	while(true){
-		std::unique_lock lk(conn.mu);
+		printf("Hello!\n");
 		if (conn.stop.test()){
 			break;
 		}
 
+		
 		asio_read(conn.conn,&buf, &size, &err);
 		if (err){
 			#ifdef CLIENT
+				conn.mu.lock();
 				reconnectToServer();
+				conn.mu.unlock();
 				continue;
 			#else
 				break;
@@ -111,6 +114,7 @@ void readFromRemote(Conn& conn){
 		}
 
 		std::string str(buf, size);
+		printf("%*.s\n", size, buf);
 		queueItem(REMOTE, str);
 	}
 }
@@ -152,8 +156,8 @@ void Process(){
 				bool err=true;
 
 				while(err){
+					asio_write(clientConn.conn, data.data(), data.size(), &err);					
 					clientConn.mu.lock();
-					asio_write(clientConn.conn, data.data(), data.size(), &err);	
 					if (err){
 						reconnectToServer();
 					}
