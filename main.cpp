@@ -28,7 +28,7 @@ std::unordered_map<std::string, int> recievedItems;
 
 protocol::Selection currentSelection;
 
-//Concurrency guarentee --- only one thread can read or modify a Conn at a time. When a thread is finished reading/modifying a Conn, it must either be valid or NULL.
+//Concurrency guarentee --- When a thread is finished reading/modifying a Conn.conn, it must either be valid or NULL.
 typedef struct {
 	AsioConn* conn = NULL;
 	std::shared_mutex mu;
@@ -222,6 +222,7 @@ int main(){
 			auto server=asio_server_init(1);
 			for(;;){
 				auto conn=asio_server_accept(server);
+				//You must wait for conn to be valid before assigning it to a client --- we implcitly assume that any client in the clients map must be valid (ie, client.conn is valid)
 				clientsMutex.lock();
 				auto it=clientIds.begin();
 				auto id=*it;
