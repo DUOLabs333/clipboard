@@ -151,9 +151,13 @@ void Process(){
 	
 		//Proto-ACK functionality. If you recieve selection, don't send the same selection (will just lead to a loop). Acknowledge you recieved it by ignoring it in the clipboard.
 		if (source==LOCAL){
-			auto& count=recievedItems.try_emplace(data, 0).first->second;
-			if (count>0){
+			if (recievedItems.contains(data)){ //data will only be in recievedItems if count>0; ie, there are clipboard items that haven't been ACKed yet
+				auto& count=recievedItems[data];
 				count--;
+				if (count<=0){ //Should be removed now
+					recievedItems.erase(data);
+				}
+
 				continue;
 			}
 
