@@ -28,7 +28,7 @@ char *bar[]={""};
 
 
 bool operator!=(const Format& a, const Format& b){
-	(a.namelen!=b.namelen) || (memcmp(a.name,b.name,a.namelen)) || (a.datalen!=b.datalen) || (memcmp(a.data, b.data, a.datalen)); 
+	return (a.namelen!=b.namelen) || (memcmp(a.name,b.name,a.namelen)) || (a.datalen!=b.datalen) || (memcmp(a.data, b.data, a.datalen)); 
 }
 
 bool operator!=(const Selection& a, const Selection& b){ //C++ doesn't have a default struct comparator
@@ -66,9 +66,7 @@ extern "C" {
     void clipboard_run(){
         while(1){
             qGuiApp->processEvents();
-            #ifdef __linux__
-                QThread::msleep(50); //Without the sleep, processEvents will be too fast for, so get and set will be delayed and be inconsistently run (this is also why we don't use exec())
-            #endif
+            QThread::msleep(50); //Prevent high CPU usage
         }
     }
     
@@ -131,7 +129,7 @@ extern "C" {
 
 	void clipboard_changed(){
 		#ifdef __APPLE__ //On MacOS, only works when app window is in focus. So, must do polling
-			QThread::sleep(5);
+			QThread::sleep(1);
 		#else
 			QEventLoop loop;
 			auto connection=QObject::connect(qGuiApp->clipboard(),&QClipboard::dataChanged,&loop,&QEventLoop::quit);

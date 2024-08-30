@@ -42,7 +42,7 @@ class main(BuildBase):
 
     FRAMEWORKS=['CoreFoundation', 'CoreServices', 'CoreGraphics', 'IOKit', 'Metal', 'AppKit', 'Security', 'CoreVideo', 'IOSurface', 'Carbon', 'QuartzCore']
 
-    SHARED_LIBS=(["z"] if PLATFORM=="darwin" else ['double-conversion', 'm', 'double-conversion', 'xcb', 'X11', 'Xrender', 'xcb-shape', 'xcb-icccm', 'xcb-sync', 'xcb-xfixes', 'xcb-randr', 'xcb-keysyms', 'xcb-xkb', 'xcb-shm', 'xcb-image', 'xcb-render', 'xcb-render-util', 'xcb-xinput', 'xcb-cursor', 'X11-xcb', 'xkbcommon', 'xkbcommon-x11'])
+    SHARED_LIBS=([] if PLATFORM=="darwin" else ['double-conversion', 'm', 'double-conversion', 'xcb', 'X11', 'Xrender', 'xcb-shape', 'xcb-icccm', 'xcb-sync', 'xcb-xfixes', 'xcb-randr', 'xcb-keysyms', 'xcb-xkb', 'xcb-shm', 'xcb-image', 'xcb-render', 'xcb-render-util', 'xcb-xinput', 'xcb-cursor', 'X11-xcb', 'xkbcommon', 'xkbcommon-x11'])
 
     OUTPUT_NAME="clipboard"
     def __init__(self):
